@@ -1,0 +1,12 @@
+CREATE TYPE subscription_status_enum AS ENUM ('trial', 'active', 'suspended', 'inactive', 'cancelled');
+CREATE TYPE subscription_plan_enum AS ENUM ('monthly', 'biannual');
+CREATE TYPE order_status_enum AS ENUM ('dijemput', 'baru', 'proses', 'selesai', 'diambil', 'diantar', 'dibatalkan');
+CREATE TYPE photo_type_enum AS ENUM ('before', 'after');
+CREATE TYPE payment_method_enum AS ENUM ('cash', 'transfer', 'qris', 'lainnya');
+CREATE TYPE payment_status_enum AS ENUM ('paid', 'pending', 'refunded');
+CREATE TYPE attendance_type_enum AS ENUM ('masuk', 'keluar');
+CREATE TYPE permission_enum AS ENUM ('manage_order', 'update_status', 'manage_delivery', 'view_report', 'manage_outlet');
+CREATE TYPE order_action_enum AS ENUM ('created', 'status_changed', 'price_edited', 'photo_added', 'cancelled', 'delivery_updated');
+CREATE TYPE pickup_status_enum AS ENUM ('pending', 'on_the_way', 'picked_up', 'failed');
+CREATE TYPE delivery_status_enum AS ENUM ('pending', 'on_the_way', 'delivered', 'failed');
+CREATE TYPE invoice_status_enum AS ENUM ('pending', 'paid', 'expired', 'failed');

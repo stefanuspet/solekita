@@ -1,0 +1,6 @@
+[build]
+  entrypoint = "tmp/main"
+  cmd        = "go build -o tmp/main ./cmd/api"
+
+[misc]
+  clean_on_exit = true

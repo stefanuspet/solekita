@@ -1,0 +1,26 @@
+CREATE TABLE orders (
+    id                UUID               PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_number      VARCHAR(30)        NOT NULL UNIQUE,
+    outlet_id         UUID               NOT NULL REFERENCES outlets(id) ON DELETE RESTRICT,
+    customer_id       UUID               NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+    kasir_id          UUID               NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    treatment_id      UUID               NOT NULL REFERENCES treatments(id) ON DELETE RESTRICT,
+    treatment_name    VARCHAR(100)       NOT NULL,
+    material          VARCHAR(50)        NOT NULL,
+    status            order_status_enum  NOT NULL DEFAULT 'baru',
+    base_price        INTEGER            NOT NULL,
+    delivery_fee      INTEGER            NOT NULL DEFAULT 0,
+    total_price       INTEGER            NOT NULL,
+    is_price_edited   BOOLEAN            NOT NULL DEFAULT false,
+    original_price    INTEGER,
+    condition_notes   TEXT,
+    is_pickup         BOOLEAN            NOT NULL DEFAULT false,
+    is_delivery       BOOLEAN            NOT NULL DEFAULT false,
+    estimated_done_at TIMESTAMP,
+    cancel_reason     TEXT,
+    cancelled_by      UUID               REFERENCES users(id) ON DELETE SET NULL,
+    cancelled_at      TIMESTAMP,
+    created_at        TIMESTAMP          NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMP          NOT NULL DEFAULT now()
+);
+

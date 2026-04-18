@@ -1,0 +1,12 @@
+DROP TYPE IF EXISTS invoice_status_enum;
+DROP TYPE IF EXISTS delivery_status_enum;
+DROP TYPE IF EXISTS pickup_status_enum;
+DROP TYPE IF EXISTS order_action_enum;
+DROP TYPE IF EXISTS permission_enum;
+DROP TYPE IF EXISTS attendance_type_enum;
+DROP TYPE IF EXISTS payment_status_enum;
+DROP TYPE IF EXISTS payment_method_enum;
+DROP TYPE IF EXISTS photo_type_enum;
+DROP TYPE IF EXISTS order_status_enum;
+DROP TYPE IF EXISTS subscription_plan_enum;
+DROP TYPE IF EXISTS subscription_status_enum;

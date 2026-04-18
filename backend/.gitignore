@@ -1,0 +1,26 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Binary
+/bin/
+*.exe
+*.out
+
+# Go build cache
+/tmp/
+
+# Air (hot reload)
+/air/
+tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

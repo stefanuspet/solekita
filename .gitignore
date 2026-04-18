@@ -1,0 +1,26 @@
+# Docs (private — tidak di-commit ke repo publik)
+docs/
+
+# Docker secrets
+docker/.env
+docker/.env.*
+!docker/.env.example
+
+# Environment safety net (subdirs punya gitignore sendiri, ini backup)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+**/. DS_Store
+Thumbs.db
+
+# Logs
+*.log
+**/*.log
