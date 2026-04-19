@@ -74,6 +74,7 @@ func main() {
 	subscriptionService := service.NewSubscriptionService(subRepo, invoiceRepo, outletRepo, userRepo, tripay)
 	webhookService := service.NewWebhookService(db, invoiceRepo, subRepo, outletRepo, userRepo, fonnte, tripay)
 	adminService := service.NewAdminService(adminRepo, outletRepo, subRepo, userRepo, fonnte)
+	syncService := service.NewSyncService(db, orderRepo, photoRepo, paymentRepo, deliveryRepo, logRepo, treatmentRepo, customerRepo, r2)
 
 	// Handlers
 	handlers := &Handlers{
@@ -83,13 +84,14 @@ func main() {
 		User:      handler.NewUserHandler(userService),
 		Treatment: handler.NewTreatmentHandler(treatmentService),
 		Customer:  handler.NewCustomerHandler(customerService),
-		Order:      handler.NewOrderHandler(orderService),
-		Attendance: handler.NewAttendanceHandler(attendanceService),
-		Dashboard:  handler.NewDashboardHandler(dashboardService),
+		Order:        handler.NewOrderHandler(orderService),
+		Attendance:   handler.NewAttendanceHandler(attendanceService),
+		Dashboard:    handler.NewDashboardHandler(dashboardService),
 		Delivery:     handler.NewDeliveryHandler(deliveryService),
 		Subscription: handler.NewSubscriptionHandler(subscriptionService),
 		Webhook:      handler.NewWebhookHandler(webhookService),
 		Admin:        handler.NewAdminHandler(adminService),
+		Sync:         handler.NewSyncHandler(syncService),
 	}
 
 	r := setupRouter(cfg, handlers)

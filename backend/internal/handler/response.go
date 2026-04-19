@@ -59,7 +59,11 @@ func parsePageLimit(c *gin.Context) (page, limit int) {
 func handleServiceError(c *gin.Context, err error) {
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
-		respondError(c, appErr.Code, appErr.Message, err)
+		msg := appErr.Message
+		if appErr.Err != nil {
+			msg = appErr.Err.Error()
+		}
+		respondError(c, appErr.Code, msg, err)
 		return
 	}
 

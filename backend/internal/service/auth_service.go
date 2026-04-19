@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"regexp"
 	"strings"
 	"time"
 
@@ -56,18 +58,23 @@ func NewAuthService(
 // ── Request / Response ────────────────────────────────────────────────────────
 
 type RegisterRequest struct {
-	OutletName string `json:"outlet_name" binding:"required"`
-	OutletCode string `json:"outlet_code" binding:"required,min=2,max=5"`
-	OwnerName  string `json:"owner_name" binding:"required"`
-	Phone      string `json:"phone" binding:"required"`
-	Password   string `json:"password" binding:"required,min=6"`
+	BusinessName string `json:"business_name" binding:"required,min=3"`
+	Phone        string `json:"phone" binding:"required"`
+	Password     string `json:"password" binding:"required,min=8"`
+}
+
+type TrialData struct {
+	StartedAt     time.Time `json:"started_at"`
+	EndsAt        time.Time `json:"ends_at"`
+	DaysRemaining int       `json:"days_remaining"`
 }
 
 type AuthResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	ExpiresIn    int      `json:"expires_in"`
-	User         UserData `json:"user"`
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"refresh_token"`
+	ExpiresIn    int        `json:"expires_in"`
+	User         UserData   `json:"user"`
+	Trial        *TrialData `json:"trial,omitempty"`
 }
 
 type UserData struct {
@@ -91,19 +98,25 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 	// 1. Validasi nomor HP tidak duplikat
 	_, lookupErr := s.userRepo.GetByPhone(ctx, req.Phone)
 	if lookupErr == nil {
-		return nil, apperrors.ErrConflict.New(fmt.Errorf("nomor HP sudah terdaftar"))
+		return nil, apperrors.ErrConflict.New(fmt.Errorf("nomor HP sudah terdaftar. Silakan login"))
 	}
 	if !errors.Is(lookupErr, apperrors.ErrNotFound) {
 		return nil, fmt.Errorf("Register: cek duplikasi phone: %w", lookupErr)
 	}
 
-	// 2. Hash password bcrypt cost 12
+	// 2. Auto-generate outlet code unik
+	outletCode, err := s.generateUniqueOutletCode(ctx, req.BusinessName)
+	if err != nil {
+		return nil, fmt.Errorf("Register: generate outlet code: %w", err)
+	}
+
+	// 3. Hash password bcrypt cost 12
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
 		return nil, fmt.Errorf("Register: hash password: %w", err)
 	}
 
-	// 3. Buat outlet + user + subscription dalam 1 transaction
+	// 4. Buat outlet + user + subscription dalam 1 transaction
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Register: begin tx: %w", err)
@@ -125,8 +138,8 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 	userID := uuid.New()
 
 	outlet := &model.Outlet{
-		Name:                 req.OutletName,
-		Code:                 strings.ToUpper(req.OutletCode),
+		Name:                 req.BusinessName,
+		Code:                 outletCode,
 		OwnerID:              userID,
 		SubscriptionStatus:   model.SubscriptionStatusTrial,
 		OverdueThresholdDays: 7,
@@ -136,10 +149,11 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 		return nil, fmt.Errorf("Register: create outlet: %w", err)
 	}
 
+	// Nama user default = nomor HP sampai owner update profil
 	user := &model.User{
 		ID:           userID,
 		OutletID:     outlet.ID,
-		Name:         req.OwnerName,
+		Name:         req.Phone,
 		Phone:        req.Phone,
 		PasswordHash: string(hash),
 		IsOwner:      true,
@@ -152,9 +166,9 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 	now := time.Now()
 	trialEnds := now.Add(14 * 24 * time.Hour)
 	sub := &model.Subscription{
-		OutletID:      outlet.ID,
-		Plan:          model.SubscriptionPlanMonthly,
-		PricePerMonth: 29000,
+		OutletID:       outlet.ID,
+		Plan:           model.SubscriptionPlanMonthly,
+		PricePerMonth:  29000,
 		TrialStartedAt: &now,
 		TrialEndsAt:    &trialEnds,
 	}
@@ -162,7 +176,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 		return nil, fmt.Errorf("Register: create subscription: %w", err)
 	}
 
-	// 4. Generate access token + refresh token
+	// 5. Generate access token + refresh token
 	accessToken, expiresIn, err := s.generateAccessToken(user, outlet, []model.Permission{})
 	if err != nil {
 		return nil, fmt.Errorf("Register: generate access token: %w", err)
@@ -182,24 +196,24 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 		return nil, fmt.Errorf("Register: save refresh token: %w", err)
 	}
 
-	// tx.Commit() dipanggil oleh defer — pada titik ini semua FK dicek termasuk fk_outlets_owner
+	// tx.Commit() dipanggil oleh defer
 
-	// Kirim WA sambutan setelah register berhasil (async, tidak gagalkan register)
+	// Kirim WA sambutan async
 	if s.fonnte != nil {
-		userName := req.OwnerName
-		outletName := req.OutletName
+		outletName := req.BusinessName
 		phone := req.Phone
 		go func() {
 			msg := fmt.Sprintf(
-				"Halo %s! Selamat datang di Solekita 👟\n\nOutlet *%s* berhasil terdaftar. Nikmati 14 hari masa trial gratis!\n\nSilakan login dan mulai kelola laundry sepatu Anda.",
-				userName, outletName,
+				"Halo! Selamat datang di Solekita 👟\n\nOutlet *%s* berhasil terdaftar. Nikmati 14 hari masa trial gratis!\n\nSilakan login dan mulai kelola laundry sepatu Anda.",
+				outletName,
 			)
 			if err := s.fonnte.Send(context.Background(), phone, msg); err != nil {
-				// best-effort — abaikan error
 				_ = err
 			}
 		}()
 	}
+
+	daysRemaining := int(time.Until(trialEnds).Hours() / 24)
 
 	return &AuthResponse{
 		AccessToken:  accessToken,
@@ -217,7 +231,46 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (res *A
 			},
 			Permissions: []string{},
 		},
+		Trial: &TrialData{
+			StartedAt:     now,
+			EndsAt:        trialEnds,
+			DaysRemaining: daysRemaining,
+		},
 	}, nil
+}
+
+// generateUniqueOutletCode membuat kode outlet dari 3 huruf pertama nama bisnis + 2 digit random.
+// Contoh: "Solekita Jogja" → "SOL" + "47" = "SOL47"
+// Coba maksimal 10 kali jika ada collision.
+func (s *AuthService) generateUniqueOutletCode(ctx context.Context, businessName string) (string, error) {
+	// Ambil 3 huruf pertama (hanya A-Z)
+	re := regexp.MustCompile(`[A-Za-z]`)
+	letters := re.FindAllString(businessName, -1)
+	prefix := ""
+	for i, l := range letters {
+		if i >= 3 {
+			break
+		}
+		prefix += strings.ToUpper(l)
+	}
+	for len(prefix) < 3 {
+		prefix += "X"
+	}
+
+	for range 10 {
+		n1, _ := rand.Int(rand.Reader, big.NewInt(10))
+		n2, _ := rand.Int(rand.Reader, big.NewInt(10))
+		code := fmt.Sprintf("%s%s%s", prefix, n1.String(), n2.String())
+
+		exists, err := s.outletRepo.CodeExists(ctx, code)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return code, nil
+		}
+	}
+	return "", fmt.Errorf("tidak bisa generate kode outlet unik")
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────

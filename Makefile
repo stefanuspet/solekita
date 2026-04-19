@@ -27,6 +27,7 @@ migrate-down:
 
 migrate-reset:
 	$(MIGRATE) -path $(BACKEND_DIR)/migrations -database "$(DB_URL)" drop -f
+	psql '$(DB_URL)' -c "DROP TYPE IF EXISTS subscription_status_enum, subscription_plan_enum, order_status_enum, photo_type_enum, payment_method_enum, payment_status_enum, attendance_type_enum, permission_enum, order_action_enum, pickup_status_enum, delivery_status_enum, invoice_status_enum CASCADE;"
 	$(MIGRATE) -path $(BACKEND_DIR)/migrations -database "$(DB_URL)" up
 
 # ── Build ─────────────────────────────────────────────────────────────────────

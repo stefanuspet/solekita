@@ -119,6 +119,9 @@ func setupRouter(cfg *config.Config, h *Handlers) *gin.Engine {
 		authed.GET("/subscriptions/me", middleware.RequireOwner(), h.Subscription.HandleGetMySubscription)
 		authed.POST("/subscriptions/me/convert", middleware.RequireOwner(), h.Subscription.HandleConvertTrial)
 		authed.GET("/subscriptions/me/invoices", middleware.RequireOwner(), h.Subscription.HandleListInvoices)
+
+		// Offline Sync
+		authed.POST("/sync", middleware.RequirePermission(model.PermissionManageOrder), h.Sync.HandleSync)
 	}
 
 	// ── Admin Panel ───────────────────────────────────────────────────────────

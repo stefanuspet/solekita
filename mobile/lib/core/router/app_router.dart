@@ -1,69 +1,101 @@
-import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mobile/data/local/secure_storage.dart';
+import 'package:mobile/presentation/screens/attendance/attendance_screen.dart';
+import 'package:mobile/presentation/screens/auth/login_screen.dart';
+import 'package:mobile/presentation/screens/auth/register_screen.dart';
+import 'package:mobile/presentation/screens/home/home_screen.dart';
+import 'package:mobile/presentation/screens/order/create_order_screen.dart';
+import 'package:mobile/presentation/screens/order/order_detail_screen.dart';
+import 'package:mobile/presentation/screens/settings/settings_screen.dart';
+import 'package:mobile/presentation/screens/setup/first_time_setup_screen.dart';
+import 'package:mobile/presentation/screens/splash_screen.dart';
 
-class SecureStorage {
-  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+class AppRoutes {
+  static const splash = '/';
+  static const login = '/login';
+  static const register = '/register';
+  static const firstTimeSetup = '/setup';
+  static const home = '/home';
+  static const createOrder = '/order/create';
+  static const orderDetail = '/order/:id';
+  static const attendance = '/attendance';
+  static const settings = '/settings';
 
-  // ========================
-  // KEYS
-  // ========================
-  static const String _accessTokenKey = 'access_token';
-  static const String _refreshTokenKey = 'refresh_token';
-  static const String _userDataKey = 'user_data';
+  // Route yang bisa diakses tanpa token
+  static const _publicRoutes = {login, register};
 
-  // ========================
-  // ACCESS TOKEN
-  // ========================
-  static Future<void> saveAccessToken(String token) async {
-    await _storage.write(key: _accessTokenKey, value: token);
-  }
-
-  static Future<String?> getAccessToken() async {
-    return await _storage.read(key: _accessTokenKey);
-  }
-
-  static Future<void> deleteAccessToken() async {
-    await _storage.delete(key: _accessTokenKey);
-  }
-
-  // ========================
-  // REFRESH TOKEN
-  // ========================
-  static Future<void> saveRefreshToken(String token) async {
-    await _storage.write(key: _refreshTokenKey, value: token);
-  }
-
-  static Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
-  }
-
-  static Future<void> deleteRefreshToken() async {
-    await _storage.delete(key: _refreshTokenKey);
-  }
-
-  // ========================
-  // USER DATA (JSON STRING)
-  // ========================
-  static Future<void> saveUserData(Map<String, dynamic> user) async {
-    final jsonString = jsonEncode(user);
-    await _storage.write(key: _userDataKey, value: jsonString);
-  }
-
-  static Future<Map<String, dynamic>?> getUserData() async {
-    final jsonString = await _storage.read(key: _userDataKey);
-    if (jsonString == null) return null;
-
-    return jsonDecode(jsonString);
-  }
-
-  static Future<void> deleteUserData() async {
-    await _storage.delete(key: _userDataKey);
-  }
-
-  // ========================
-  // CLEAR ALL (LOGOUT)
-  // ========================
-  static Future<void> clearAll() async {
-    await _storage.deleteAll();
-  }
+  // Route yang tidak terkena redirect setelah cek setup
+  static const _setupExemptRoutes = {splash, login, register, firstTimeSetup};
 }
+
+final appRouter = GoRouter(
+  initialLocation: AppRoutes.splash,
+  redirect: (context, state) async {
+    final loc = state.matchedLocation;
+
+    // Splash menangani redirect-nya sendiri
+    if (loc == AppRoutes.splash) return null;
+
+    final token = await SecureStorage.getAccessToken();
+
+    // ── Tidak ada token ────────────────────────────────────────────────────
+    if (token == null) {
+      // Halaman public boleh diakses
+      if (AppRoutes._publicRoutes.contains(loc)) return null;
+      return AppRoutes.login;
+    }
+
+    // ── Ada token ──────────────────────────────────────────────────────────
+    // Jangan bisa kembali ke halaman auth
+    if (AppRoutes._publicRoutes.contains(loc)) return AppRoutes.home;
+
+    // Cek setup hanya untuk route di luar exempted list
+    if (!AppRoutes._setupExemptRoutes.contains(loc)) {
+      final setupDone = await SecureStorage.isSetupCompleted();
+      if (!setupDone) return AppRoutes.firstTimeSetup;
+    }
+
+    return null;
+  },
+  routes: [
+    GoRoute(
+      path: AppRoutes.splash,
+      builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.login,
+      builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.register,
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.firstTimeSetup,
+      builder: (context, state) => const FirstTimeSetupScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.home,
+      builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.createOrder,
+      builder: (context, state) => const CreateOrderScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.orderDetail,
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return OrderDetailScreen(orderId: id);
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.attendance,
+      builder: (context, state) => const AttendanceScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.settings,
+      builder: (context, state) => const SettingsScreen(),
+    ),
+  ],
+);

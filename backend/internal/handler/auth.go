@@ -28,7 +28,7 @@ func (h *AuthHandler) HandleRegister(c *gin.Context) {
 		return
 	}
 
-	respondSuccess(c, http.StatusCreated, "Registrasi berhasil", res)
+	respondSuccess(c, http.StatusCreated, "Akun berhasil dibuat. Trial 14 hari Anda sudah aktif!", res)
 }
 
 func (h *AuthHandler) HandleLogout(c *gin.Context) {

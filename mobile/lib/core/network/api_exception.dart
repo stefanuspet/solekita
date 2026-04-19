@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 class ApiException implements Exception {
   final int statusCode;
   final String message;
@@ -20,7 +22,14 @@ class ApiException implements Exception {
   }
 
   @override
-  String toString() {
-    return 'ApiException($statusCode): $message';
+  String toString() => 'ApiException($statusCode): $message';
+
+  /// Unwrap ApiException dari DioException maupun langsung.
+  static ApiException? from(Object error) {
+    if (error is ApiException) return error;
+    if (error is DioException && error.error is ApiException) {
+      return error.error as ApiException;
+    }
+    return null;
   }
 }

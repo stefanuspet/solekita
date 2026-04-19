@@ -91,6 +91,18 @@ func (r *OutletRepository) UpdateSubscriptionStatus(ctx context.Context, outletI
 	return nil
 }
 
+// CodeExists cek apakah outlet code sudah dipakai.
+func (r *OutletRepository) CodeExists(ctx context.Context, code string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM outlets WHERE code = $1)`, code,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("OutletRepository.CodeExists: %w", err)
+	}
+	return exists, nil
+}
+
 // GetByID mengambil outlet berdasarkan ID.
 func (r *OutletRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Outlet, error) {
 	query := `
